@@ -15,6 +15,12 @@ import sys
 import threading
 import time
 import webbrowser
+
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -56,8 +62,13 @@ from provisioning_service import (
     insert_node_to_supabase,
     fetch_levels_from_supabase,
     create_level_in_supabase,
+    fetch_nodes_from_supabase,
+    fetch_edges_from_supabase,
+    insert_edges_to_supabase,
+    link_destinations_to_supabase,
     history_store as prov_history_store
 )
+
 
 def load_supabase_env():
     """Reads default Supabase credentials from .env in workspace root."""
@@ -648,7 +659,18 @@ class FlasherHTTPRequestHandler(SimpleHTTPRequestHandler):
             sb_cfg = load_supabase_env()
             ok, levels, msg = fetch_levels_from_supabase(sb_cfg.get("supabase_url"), sb_cfg.get("supabase_anon_key"))
             self._send_json({"ok": ok, "levels": levels, "message": msg}, status=200 if ok else 500)
+        elif path == "/api/supabase/nodes":
+            qs = parse_qs(parsed.query)
+            level_id = qs.get("level", [""])[0] or None
+            sb_cfg = load_supabase_env()
+            ok, nodes, msg = fetch_nodes_from_supabase(sb_cfg.get("supabase_url"), sb_cfg.get("supabase_anon_key"), level_id=level_id)
+            self._send_json({"ok": ok, "nodes": nodes, "message": msg}, status=200 if ok else 500)
+        elif path == "/api/supabase/edges":
+            sb_cfg = load_supabase_env()
+            ok, edges, msg = fetch_edges_from_supabase(sb_cfg.get("supabase_url"), sb_cfg.get("supabase_anon_key"))
+            self._send_json({"ok": ok, "edges": edges, "message": msg}, status=200 if ok else 500)
         elif path == "/favicon.ico":
+
             self.send_response(204)
             self.end_headers()
         else:
@@ -815,10 +837,51 @@ class FlasherHTTPRequestHandler(SimpleHTTPRequestHandler):
 
         elif path == "/api/provision/supabase/insert":
             payload = data.get("payload", {})
+            edges = data.get("edges", [])
+            destinations = data.get("destinations", [])
             sb_cfg = load_supabase_env()
             sb_url = data.get("supabase_url") or sb_cfg.get("supabase_url")
             sb_key = data.get("supabase_key") or sb_cfg.get("supabase_anon_key")
+            
+            # 1. Insert Node
             ok, res = insert_node_to_supabase(payload, sb_url, sb_key)
+            if not ok:
+                self._send_json({"ok": False, "result": res}, status=400)
+                return
+
+            # 2. Insert Edges if provided
+            edge_res = None
+            if edges:
+                _, edge_res = insert_edges_to_supabase(edges, sb_url, sb_key)
+
+            # 3. Link Destinations if provided
+            dest_res = None
+            node_id = payload.get("node_id") if isinstance(payload, dict) else None
+            if destinations and node_id:
+                _, dest_res = link_destinations_to_supabase(node_id, destinations, sb_url, sb_key)
+
+            self._send_json({
+                "ok": True,
+                "result": res,
+                "edges_result": edge_res,
+                "destinations_result": dest_res
+            }, status=200)
+
+        elif path == "/api/supabase/edges/insert":
+            edges = data.get("edges", [])
+            sb_cfg = load_supabase_env()
+            sb_url = data.get("supabase_url") or sb_cfg.get("supabase_url")
+            sb_key = data.get("supabase_key") or sb_cfg.get("supabase_anon_key")
+            ok, res = insert_edges_to_supabase(edges, sb_url, sb_key)
+            self._send_json({"ok": ok, "result": res}, status=200 if ok else 400)
+
+        elif path == "/api/supabase/destinations/link":
+            node_id = data.get("node_id")
+            destinations = data.get("destinations", [])
+            sb_cfg = load_supabase_env()
+            sb_url = data.get("supabase_url") or sb_cfg.get("supabase_url")
+            sb_key = data.get("supabase_key") or sb_cfg.get("supabase_anon_key")
+            ok, res = link_destinations_to_supabase(node_id, destinations, sb_url, sb_key)
             self._send_json({"ok": ok, "result": res}, status=200 if ok else 400)
 
         elif path == "/api/supabase/levels/create":
@@ -828,6 +891,7 @@ class FlasherHTTPRequestHandler(SimpleHTTPRequestHandler):
             sb_key = data.get("supabase_key") or sb_cfg.get("supabase_anon_key")
             ok, res = create_level_in_supabase(payload, sb_url, sb_key)
             self._send_json({"ok": ok, "result": res}, status=200 if ok else 400)
+
 
         else:
             self._send_json({"error": "Not found"}, status=404)

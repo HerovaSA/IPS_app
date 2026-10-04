@@ -1836,13 +1836,101 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;">
           <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label">اسم المكان بالعربي (name_ar)</label>
-            <input type="text" id="provNameAr" class="terminal-input" placeholder="مثال: تقاطع أو ممر" value="تقاطع">
+            <input type="text" id="provNameAr" class="terminal-input" placeholder="مثال: تقاطع أو ممر أو قاعة 5" value="تقاطع">
           </div>
           <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label">اسم المكان بالإنجليزي (name_en)</label>
-            <input type="text" id="provNameEn" class="terminal-input" placeholder="e.g. Intersection or Corridor" value="Intersection">
+            <input type="text" id="provNameEn" class="terminal-input" placeholder="e.g. Intersection or Hall 5" value="Intersection">
           </div>
         </div>
+
+        <!-- Facility Type & Multiple Destinations / Search Aliases -->
+        <div style="display: grid; grid-template-columns: 1.1fr 1.6fr; gap: 0.85rem; margin-top: 0.75rem;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">نوع المرفق الإضافي (Facility Type)</label>
+            <select id="provFacilityType" class="form-select">
+              <option value="" selected>بدون مرفق خاص (نقطة عادية)</option>
+              <option value="restroom_male">🚻 حمام رجالي (Men Restroom)</option>
+              <option value="restroom_female">🚻 حمام حريمي (Women Restroom)</option>
+              <option value="elevator">🛗 أسانسير / مصعد (Elevator)</option>
+              <option value="stairs">🪜 درج / سلم (Stairs)</option>
+              <option value="exit">🚪 مخرج طوارئ (Emergency Exit)</option>
+              <option value="prayer_room">🕌 مصلى / مسجد (Prayer Room)</option>
+              <option value="cafeteria">☕ كافتيريا / بوفيه (Cafeteria)</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">وجهات وبدائل بحث أخرى لنفس النقطة (Destinations)</label>
+            <input type="text" id="provAdditionalDests" class="terminal-input" placeholder="مثال: قاعة الاستماع 5, استراحة النواب (مفصولة بفاصلة)">
+          </div>
+        </div>
+
+        <!-- Cross-Floor Copy Helper (Appears for multi-floor navigation) -->
+        <div id="crossFloorCopyBox" style="margin-top: 0.85rem; background: rgba(139, 92, 246, 0.08); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 10px; padding: 0.75rem 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-size: 1.2rem;">🏢</span>
+              <div>
+                <strong style="color: #c4b5fd; font-size: 0.85rem;">التماثل الرأسي: اقتباس الإحداثيات والمسارات من دور آخر</strong>
+                <div style="font-size: 0.72rem; color: var(--text-muted);">نسخ (X, Y) والنوع وتجهيز الـ Edges مع إمكانية تعديل الاسم بسهولة</div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 0.4rem; align-items: center;">
+              <span style="font-size: 0.78rem; color: #a78bfa;">رقم النود المصدر:</span>
+              <input type="number" id="copySourceNodeId" class="terminal-input" placeholder="مثال: 101" style="max-width: 90px; padding: 3px 8px; font-size: 0.85rem; text-align: center;">
+              <button type="button" class="btn-primary" id="btnCopySourceNode" style="padding: 4px 12px; font-size: 0.78rem; background: linear-gradient(135deg, #8b5cf6, #6366f1); border: none;">
+                📋 اقتباس البيانات
+              </button>
+            </div>
+          </div>
+          <div id="copySourceStatus" style="font-size: 0.75rem; margin-top: 0.4rem; display: none;"></div>
+        </div>
+
+        <!-- Connected Edges & Nearest Neighbors Auto-suggest (Solutions 1 & 2) -->
+        <div id="edgesSectionBox" style="margin-top: 0.85rem; background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 10px; padding: 0.85rem 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; flex-wrap: wrap; gap: 0.4rem;">
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+              <span style="font-size: 1.15rem;">🔗</span>
+              <strong style="color: #93c5fd; font-size: 0.88rem;">المسارات والجيران المتصلين (Connected Edges)</strong>
+              <span style="font-size: 0.72rem; color: var(--text-muted);">(حساب أقصر مسار وتوجيه A*)</span>
+            </div>
+            <div style="display: flex; gap: 0.4rem; align-items: center;">
+              <select id="provManualEdgeSelect" class="form-select" style="padding: 3px 8px; font-size: 0.78rem; max-width: 200px;">
+                <option value="">➕ إضافة جار يدوياً...</option>
+              </select>
+              <button type="button" class="btn-secondary" id="btnAddManualEdge" style="padding: 3px 10px; font-size: 0.78rem;">
+                إضافة
+              </button>
+            </div>
+          </div>
+
+          <!-- Auto-Suggest Nearest Neighbors Bar -->
+          <div id="autoSuggestEdgesBox" style="background: rgba(0, 0, 0, 0.25); border: 1px dashed rgba(59, 130, 246, 0.35); border-radius: 8px; padding: 0.55rem 0.8rem; margin-bottom: 0.65rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.4rem;">
+              <span style="font-size: 0.78rem; color: #93c5fd; display: flex; align-items: center; gap: 0.3rem;">
+                <span>💡</span>
+                <strong>أقرب نودز في هذا الدور بناءً على الإحداثيات (Auto-suggest):</strong>
+              </span>
+              <button type="button" class="btn-secondary" id="btnConnectAllSuggested" style="padding: 2px 8px; font-size: 0.72rem; color: var(--cyan); border-color: rgba(0, 242, 254, 0.4);">
+                🔗 ربط بأقرب الجيران
+              </button>
+            </div>
+            <div id="suggestedNeighborsChips" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.45rem;">
+              <span style="font-size: 0.75rem; color: var(--text-muted);">أدخل إحداثيات X و Y لعرض أقرب النقاط المجاورة...</span>
+            </div>
+          </div>
+
+          <!-- Active Linked Edges List -->
+          <div>
+            <div style="font-size: 0.76rem; color: var(--text-muted); margin-bottom: 0.35rem;">
+              الحواف التي سيتم تسجيلها لهذه النود:
+            </div>
+            <div id="activeEdgesContainer" style="display: flex; gap: 0.5rem; flex-wrap: wrap; min-height: 32px; align-items: center;">
+              <span style="font-size: 0.76rem; color: var(--text-muted); font-style: italic;">لا توجد حواف محددة حالياً (ستكون النود معزولة)</span>
+            </div>
+          </div>
+        </div>
+
 
         <!-- Inline Add Level Form (Hidden by default, toggled with ➕) -->
         <div id="inlineAddLevelBox" style="display: none; margin-top: 0.85rem; background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 0.75rem 1rem;">
@@ -2738,6 +2826,22 @@
     let provHistoryData = { stats: {}, records: [] };
     let supabaseLevelsList = [];
 
+    const provFacilityType = document.getElementById('provFacilityType');
+    const provAdditionalDests = document.getElementById('provAdditionalDests');
+    const copySourceNodeId = document.getElementById('copySourceNodeId');
+    const btnCopySourceNode = document.getElementById('btnCopySourceNode');
+    const copySourceStatus = document.getElementById('copySourceStatus');
+    const provManualEdgeSelect = document.getElementById('provManualEdgeSelect');
+    const btnAddManualEdge = document.getElementById('btnAddManualEdge');
+    const btnConnectAllSuggested = document.getElementById('btnConnectAllSuggested');
+    const suggestedNeighborsChips = document.getElementById('suggestedNeighborsChips');
+    const activeEdgesContainer = document.getElementById('activeEdgesContainer');
+
+    let allSupabaseNodes = [];
+    let currentFloorNodes = [];
+    let activeEdges = []; // array of { node_id: int, distance: float, name_ar: str }
+    let suggestedEdges = []; // array of { node_id: int, distance: float, name_ar: str }
+
     // Tab Switching
     tabFlasherBtn.addEventListener('click', () => {
       tabFlasherBtn.classList.add('active');
@@ -2756,6 +2860,7 @@
       loadProvHistory();
       loadSupabaseLevels();
     });
+
 
     // --------------------------------------------------------
     // Dynamic Supabase Levels Loader
@@ -2797,6 +2902,7 @@
         fallbackLevels(String(err));
       }
       updateStickerPreviews();
+      await loadSupabaseNodes();
     }
 
     function fallbackLevels(reason) {
@@ -2812,11 +2918,239 @@
       }
     }
 
-    if (btnRefreshLevels) {
-      btnRefreshLevels.addEventListener('click', () => {
-        loadSupabaseLevels();
+    if (provLevelSelect) {
+      provLevelSelect.addEventListener('change', () => {
+        updateStickerPreviews();
+        filterFloorNodes();
       });
     }
+
+    if (btnRefreshLevels) {
+      btnRefreshLevels.addEventListener('click', async () => {
+        await loadSupabaseLevels();
+        await loadSupabaseNodes();
+      });
+    }
+
+    // --------------------------------------------------------
+    // Dynamic Supabase Nodes & Edges Manager (Solutions 1 & 2)
+    // --------------------------------------------------------
+    async function loadSupabaseNodes() {
+      try {
+        const res = await fetch('/api/supabase/nodes');
+        const data = await res.json();
+        if (data.ok && Array.isArray(data.nodes)) {
+          allSupabaseNodes = data.nodes;
+          filterFloorNodes();
+        }
+      } catch (e) {
+        console.error('Error fetching nodes:', e);
+      }
+    }
+
+    function filterFloorNodes() {
+      const selectedLevel = provLevelSelect?.value || '';
+      currentFloorNodes = allSupabaseNodes.filter(n => !selectedLevel || n.level_id === selectedLevel);
+
+      // Populate manual edge select
+      if (provManualEdgeSelect) {
+        provManualEdgeSelect.innerHTML = '<option value="">➕ إضافة جار يدوياً...</option>';
+        currentFloorNodes.forEach(n => {
+          const opt = document.createElement('option');
+          opt.value = n.node_id;
+          opt.textContent = `نود ${n.node_id} (${n.name_ar || 'بدون اسم'})`;
+          provManualEdgeSelect.appendChild(opt);
+        });
+      }
+
+      updateEdgeSuggestions();
+      updateCrossFloorPreset();
+    }
+
+    function calculateDistanceM(x1, y1, x2, y2) {
+      if (x1 == null || y1 == null || x2 == null || y2 == null) return 5.0;
+      const dx = (x2 - x1);
+      const dy = (y2 - y1);
+      const cmDist = Math.hypot(dx, dy);
+      const mDist = cmDist / 100;
+      return Math.max(0.5, Math.round(mDist * 10) / 10);
+    }
+
+    function updateEdgeSuggestions() {
+      if (!suggestedNeighborsChips) return;
+      const curX = parseFloat(provX?.value);
+      const curY = parseFloat(provY?.value);
+      const curId = parseInt(provNodeId?.value, 10);
+
+      if (isNaN(curX) || isNaN(curY) || currentFloorNodes.length === 0) {
+        suggestedNeighborsChips.innerHTML = '<span style="font-size: 0.75rem; color: var(--text-muted);">أدخل إحداثيات X و Y لعرض أقرب النقاط المجاورة...</span>';
+        suggestedEdges = [];
+        return;
+      }
+
+      const activeIds = new Set(activeEdges.map(e => e.node_id));
+      const candidates = currentFloorNodes
+        .filter(n => n.node_id !== curId && !activeIds.has(n.node_id) && n.x != null && n.y != null)
+        .map(n => {
+          const dist = calculateDistanceM(curX, curY, n.x, n.y);
+          return {
+            node_id: n.node_id,
+            distance: dist,
+            name_ar: n.name_ar || 'بدون اسم'
+          };
+        })
+        .sort((a, b) => a.distance - b.distance);
+
+      suggestedEdges = candidates.slice(0, 3);
+
+      if (suggestedEdges.length === 0) {
+        suggestedNeighborsChips.innerHTML = '<span style="font-size: 0.75rem; color: var(--text-muted);">لا توجد نودز إضافية مرشحة في هذا الدور.</span>';
+        return;
+      }
+
+      suggestedNeighborsChips.innerHTML = '';
+      suggestedEdges.forEach(s => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'btn-secondary';
+        chip.style.cssText = 'padding: 3px 8px; font-size: 0.76rem; border-color: rgba(59, 130, 246, 0.4); color: #93c5fd; background: rgba(59, 130, 246, 0.1); cursor: pointer; display: flex; align-items: center; gap: 4px; border-radius: 6px;';
+        chip.innerHTML = `<span>➕ نود <strong>${s.node_id}</strong> (${s.name_ar}) - <span style="color:var(--cyan); font-family:var(--font-mono);">${s.distance}م</span></span>`;
+        chip.addEventListener('click', () => {
+          addEdge(s.node_id, s.distance, s.name_ar);
+        });
+        suggestedNeighborsChips.appendChild(chip);
+      });
+    }
+
+    function addEdge(nodeId, distance, nameAr) {
+      const idInt = parseInt(nodeId, 10);
+      if (isNaN(idInt)) return;
+      if (activeEdges.some(e => e.node_id === idInt)) return;
+
+      if (!nameAr) {
+        const found = allSupabaseNodes.find(n => n.node_id === idInt);
+        nameAr = found ? (found.name_ar || '') : '';
+      }
+
+      if (distance == null) {
+        const curX = parseFloat(provX?.value);
+        const curY = parseFloat(provY?.value);
+        const found = allSupabaseNodes.find(n => n.node_id === idInt);
+        if (found && found.x != null && found.y != null) {
+          distance = calculateDistanceM(curX, curY, found.x, found.y);
+        } else {
+          distance = 5.0;
+        }
+      }
+
+      activeEdges.push({
+        node_id: idInt,
+        distance: distance,
+        name_ar: nameAr
+      });
+
+      renderActiveEdges();
+      updateEdgeSuggestions();
+    }
+
+    function removeEdge(nodeId) {
+      activeEdges = activeEdges.filter(e => e.node_id !== nodeId);
+      renderActiveEdges();
+      updateEdgeSuggestions();
+    }
+
+    function renderActiveEdges() {
+      if (!activeEdgesContainer) return;
+      if (activeEdges.length === 0) {
+        activeEdgesContainer.innerHTML = '<span style="font-size: 0.76rem; color: var(--text-muted); font-style: italic;">لا توجد حواف محددة حالياً (ستكون النود معزولة)</span>';
+        return;
+      }
+
+      activeEdgesContainer.innerHTML = '';
+      activeEdges.forEach(e => {
+        const tag = document.createElement('div');
+        tag.style.cssText = 'background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 6px; padding: 3px 8px; font-size: 0.78rem; color: #6ee7b7; display: flex; align-items: center; gap: 6px;';
+        tag.innerHTML = `
+          <span>🔗 نود <strong>${e.node_id}</strong> (${e.name_ar || 'بدون اسم'}) - <strong style="font-family:var(--font-mono);">${e.distance}م</strong></span>
+          <button type="button" style="background:none; border:none; color:var(--rose); cursor:pointer; font-size:0.85rem; padding:0 2px;" title="حذف الحافة">✕</button>
+        `;
+        tag.querySelector('button').addEventListener('click', () => removeEdge(e.node_id));
+        activeEdgesContainer.appendChild(tag);
+      });
+    }
+
+    if (btnConnectAllSuggested) {
+      btnConnectAllSuggested.addEventListener('click', () => {
+        suggestedEdges.forEach(s => {
+          if (!activeEdges.some(e => e.node_id === s.node_id)) {
+            activeEdges.push({ node_id: s.node_id, distance: s.distance, name_ar: s.name_ar });
+          }
+        });
+        renderActiveEdges();
+        updateEdgeSuggestions();
+      });
+    }
+
+    if (btnAddManualEdge && provManualEdgeSelect) {
+      btnAddManualEdge.addEventListener('click', () => {
+        const val = provManualEdgeSelect.value;
+        if (!val) return;
+        addEdge(val);
+        provManualEdgeSelect.value = '';
+      });
+    }
+
+    if (provX) provX.addEventListener('input', updateEdgeSuggestions);
+    if (provY) provY.addEventListener('input', updateEdgeSuggestions);
+
+    // Cross-Floor Preset & Copy
+    function updateCrossFloorPreset() {
+      const curId = parseInt(provNodeId?.value, 10);
+      if (copySourceNodeId && !isNaN(curId) && curId >= 200) {
+        const baseId = 100 + (curId % 100);
+        copySourceNodeId.value = baseId;
+      }
+    }
+
+    if (provNodeId) {
+      provNodeId.addEventListener('input', () => {
+        updateCrossFloorPreset();
+        updateEdgeSuggestions();
+      });
+    }
+
+    if (btnCopySourceNode && copySourceNodeId) {
+      btnCopySourceNode.addEventListener('click', () => {
+        const srcId = parseInt(copySourceNodeId.value, 10);
+        if (isNaN(srcId) || srcId <= 0) {
+          alert('يرجى تحديد رقم النود المصدر المراد الاقتباس منها');
+          return;
+        }
+
+        const src = allSupabaseNodes.find(n => n.node_id === srcId);
+        if (!src) {
+          copySourceStatus.style.display = 'block';
+          copySourceStatus.innerHTML = `<span style="color:var(--rose)">⚠️ لم يتم العثور على النود ${srcId} في قاعدة البيانات.</span>`;
+          return;
+        }
+
+        if (src.x != null) provX.value = src.x;
+        if (src.y != null) provY.value = src.y;
+        if (src.type) provNodeType.value = src.type;
+        if (provFacilityType && src.facility_type) provFacilityType.value = src.facility_type;
+        if (provNameAr) provNameAr.value = src.name_ar || '';
+        if (provNameEn) provNameEn.value = src.name_en || '';
+
+        provNameAr.focus();
+        provNameAr.select();
+
+        copySourceStatus.style.display = 'block';
+        copySourceStatus.innerHTML = `<span style="color:var(--green)">✅ تم اقتباس إحداثيات (${src.x}, ${src.y}) وبيانات النود ${srcId} بنجاح! الاسم محدد الآن للتعديل المباشر إن وُجد اختلاف.</span>`;
+
+        updateEdgeSuggestions();
+      });
+    }
+
 
     // Toggle and Submit Inline Add Level to Supabase
     if (btnToggleAddLevel) {
@@ -3336,14 +3670,32 @@
 
       // STEP 3: INSERT TO SUPABASE
       setStepState(stepNodeCloud, stepIconCloud, 'active', '☁️', 'حفظ في Supabase...');
-      provActionStatusMessage.innerHTML = `<span style="color:var(--cyan)">☁️ [3/4] جاري تسجيل النود في جدول nodes على Supabase...</span>`;
+      provActionStatusMessage.innerHTML = `<span style="color:var(--cyan)">☁️ [3/4] جاري تسجيل النود والمسارات والوجهات على Supabase...</span>`;
 
-      let facilityType = null;
-      if (nodeType === 'poi') {
+      let facilityType = (provFacilityType?.value || '').trim() || null;
+      if (!facilityType && nodeType === 'poi') {
         const arLower = (nameAr || '').toLowerCase();
         if (arLower.includes('أسانسير') || arLower.includes('مصعد')) facilityType = 'elevator';
         else if (arLower.includes('سلم')) facilityType = 'stairs';
         else if (arLower.includes('مخرج') || arLower.includes('طوارئ')) facilityType = 'exit';
+      }
+
+      // Build edges payload
+      const edgesPayload = activeEdges.map(e => ({
+        node_id_a: parseInt(nodeId, 10),
+        node_id_b: parseInt(e.node_id, 10),
+        distance_meters: e.distance,
+        kind: (facilityType === 'elevator' || facilityType === 'stairs') ? facilityType : 'walk'
+      }));
+
+      // Build additional destinations payload
+      const addDestText = (provAdditionalDests?.value || '').trim();
+      const destsPayload = [];
+      if (addDestText) {
+        addDestText.split(/[,،]/).forEach(t => {
+          const s = t.trim();
+          if (s) destsPayload.push({ name_ar: s });
+        });
       }
 
       const uuidFormatted = formatAsUuid(uid);
@@ -3363,12 +3715,17 @@
         const cRes = await fetch('/api/provision/supabase/insert', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ payload: nodePayload })
+          body: JSON.stringify({
+            payload: nodePayload,
+            edges: edgesPayload,
+            destinations: destsPayload
+          })
         });
         const cData = await cRes.json();
         if (cData.ok) {
           dbSuccess = true;
-          setStepState(stepNodeCloud, stepIconCloud, 'done', '✅', 'تم التسجيل في السحابة');
+          let edgeNote = edgesPayload.length > 0 ? ` (+${edgesPayload.length} مسارات)` : '';
+          setStepState(stepNodeCloud, stepIconCloud, 'done', '✅', 'تم التسجيل في السحابة' + edgeNote);
         } else {
           console.error('Supabase insert error:', cData);
           const rawErr = cData.result;
@@ -3391,13 +3748,16 @@
           x: x,
           y: y,
           type: nodeType,
+          facility_type: facilityType,
           name_ar: nameAr,
           name_en: nameEn,
           esp32_uuid: uid,
           port: port,
           serial_ok: serialSuccess,
           db_ok: dbSuccess,
-          print_ok: printSuccess
+          print_ok: printSuccess,
+          edges: edgesPayload,
+          destinations: destsPayload
         };
         await fetch('/api/provision/history/save', {
           method: 'POST',
@@ -3411,6 +3771,12 @@
 
       // Final wrap up & auto increment
       await loadProvHistory();
+      await loadSupabaseNodes();
+
+      // Reset active edges & destinations for next node
+      activeEdges = [];
+      renderActiveEdges();
+      if (provAdditionalDests) provAdditionalDests.value = '';
 
       if (provAutoIncrement.checked) {
         const nextId = parseInt(nodeId, 10) + 1;
@@ -3418,17 +3784,22 @@
         updateStickerPreviews();
       }
 
+      // Update cross-floor suggestion & edge suggestions
+      updateCrossFloorPreset();
+      updateEdgeSuggestions();
+
       // Generate a fresh random UID ready for the next node
       provUidHex.value = generateSecureUidHex();
       updateUidDisplay();
 
       const overallOk = printSuccess || serialSuccess;
       provActionStatusMessage.innerHTML = overallOk
-        ? `<strong style="color:var(--green)">🎉 اكتملت العملية بنجاح للنود ${nodeId}! الملصق جاهز وتم تحديث السجل.</strong>`
+        ? `<strong style="color:var(--green)">🎉 اكتملت العملية بنجاح للنود ${nodeId}! الملصق جاهز وتم تحديث السجل والمسارات.</strong>`
         : `<strong style="color:var(--rose)">⚠️ انتهت العملية مع بعض التنبيهات. يرجى مراجعة الخطوات أعلاه.</strong>`;
 
       isProvisioningBusy = false;
       btnBigProvision.disabled = false;
+
     });
 
     function resetStepTrackers() {

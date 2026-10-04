@@ -253,12 +253,190 @@ def create_level_in_supabase(payload, supabase_url, supabase_key):
         return False, f"استثناء الاتصال بـ Supabase: {e}"
 
 
+def fetch_nodes_from_supabase(supabase_url, supabase_key, level_id=None):
+    """
+    Fetches all nodes or nodes filtered by level_id from Supabase 'nodes' table.
+    """
+    if not requests:
+        return False, [], "مكتبة requests غير متوفرة"
+    if not supabase_url or not supabase_key:
+        return False, [], "بيانات اعتماد Supabase مفقودة"
+
+    url = f"{supabase_url.rstrip('/')}/rest/v1/nodes?select=node_id,level_id,name_ar,name_en,type,facility_type,x,y,esp32_uuid&order=node_id.asc"
+    if level_id:
+        url += f"&level_id=eq.{level_id}"
+
+    headers = {
+        "apikey": supabase_key,
+        "Authorization": f"Bearer {supabase_key}",
+    }
+
+    try:
+        res = requests.get(url, headers=headers, timeout=8)
+        if res.status_code == 200:
+            return True, res.json(), "تم جلب النودز بنجاح من Supabase"
+        else:
+            return False, [], f"HTTP {res.status_code}: {res.text}"
+    except Exception as e:
+        return False, [], f"استثناء الاتصال بـ Supabase: {e}"
+
+
+def fetch_edges_from_supabase(supabase_url, supabase_key):
+    """
+    Fetches all edges from Supabase 'edges' table.
+    """
+    if not requests:
+        return False, [], "مكتبة requests غير متوفرة"
+    if not supabase_url or not supabase_key:
+        return False, [], "بيانات اعتماد Supabase مفقودة"
+
+    url = f"{supabase_url.rstrip('/')}/rest/v1/edges?select=edge_id,node_id_a,node_id_b,distance_meters,kind,connector_name&order=edge_id.asc"
+    headers = {
+        "apikey": supabase_key,
+        "Authorization": f"Bearer {supabase_key}",
+    }
+
+    try:
+        res = requests.get(url, headers=headers, timeout=8)
+        if res.status_code == 200:
+            return True, res.json(), "تم جلب الحواف بنجاح من Supabase"
+        else:
+            return False, [], f"HTTP {res.status_code}: {res.text}"
+    except Exception as e:
+        return False, [], f"استثناء الاتصال بـ Supabase: {e}"
+
+
+def insert_edges_to_supabase(edges_list, supabase_url, supabase_key):
+    """
+    Inserts a list of edges into Supabase 'edges' table.
+    Skips duplicate edges between the same two nodes.
+    """
+    if not requests:
+        return False, "مكتبة requests غير متوفرة"
+    if not supabase_url or not supabase_key:
+        return False, "بيانات اعتماد Supabase مفقودة"
+    if not edges_list:
+        return True, []
+
+    headers = {
+        "apikey": supabase_key,
+        "Authorization": f"Bearer {supabase_key}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+    }
+
+    # Fetch existing edges to avoid duplicates
+    ok, existing_edges, _ = fetch_edges_from_supabase(supabase_url, supabase_key)
+    existing_pairs = set()
+    if ok and existing_edges:
+        for e in existing_edges:
+            a, b = int(e.get("node_id_a", 0)), int(e.get("node_id_b", 0))
+            existing_pairs.add((min(a, b), max(a, b)))
+
+    new_edges = []
+    for item in edges_list:
+        a = int(item.get("node_id_a", 0))
+        b = int(item.get("node_id_b", 0))
+        if a <= 0 or b <= 0 or a == b:
+            continue
+        pair = (min(a, b), max(a, b))
+        if pair not in existing_pairs:
+            new_edges.append({
+                "node_id_a": a,
+                "node_id_b": b,
+                "distance_meters": item.get("distance_meters"),
+                "kind": item.get("kind", "walk"),
+                "connector_name": item.get("connector_name")
+            })
+            existing_pairs.add(pair)
+
+    if not new_edges:
+        return True, "جميع الحواف موجودة مسبقاً بالفعل"
+
+    url = f"{supabase_url.rstrip('/')}/rest/v1/edges"
+    try:
+        res = requests.post(url, headers=headers, json=new_edges, timeout=8)
+        if res.status_code in (200, 201):
+            return True, res.json()
+        else:
+            return False, f"HTTP {res.status_code}: {res.text}"
+    except Exception as e:
+        return False, f"استثناء الاتصال بـ Supabase: {e}"
+
+
+def link_destinations_to_supabase(node_id, destinations_list, supabase_url, supabase_key):
+    """
+    Creates destinations (if not exist) and links them to node_id in 'destination_nodes'.
+    destinations_list can be a list of strings or dicts with name_ar / name_en.
+    """
+    if not requests:
+        return False, "مكتبة requests غير متوفرة"
+    if not supabase_url or not supabase_key:
+        return False, "بيانات اعتماد Supabase مفقودة"
+    if not destinations_list or not node_id:
+        return True, []
+
+    headers = {
+        "apikey": supabase_key,
+        "Authorization": f"Bearer {supabase_key}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+    }
+
+    base_url = supabase_url.rstrip('/')
+    created_links = []
+
+    try:
+        node_id_int = int(node_id)
+        for d in destinations_list:
+            if isinstance(d, str):
+                name_ar = d.strip()
+                name_en = None
+            elif isinstance(d, dict):
+                name_ar = str(d.get("name_ar", "")).strip()
+                name_en = d.get("name_en")
+            else:
+                continue
+
+            if not name_ar:
+                continue
+
+            # 1. Check if destination already exists
+            dest_res = requests.get(f"{base_url}/rest/v1/destinations?name_ar=eq.{name_ar}&select=destination_id", headers=headers, timeout=6)
+            dest_id = None
+            if dest_res.status_code == 200 and dest_res.json():
+                dest_id = dest_res.json()[0]["destination_id"]
+            else:
+                # Create new destination
+                post_body = {"name_ar": name_ar}
+                if name_en:
+                    post_body["name_en"] = name_en
+                create_res = requests.post(f"{base_url}/rest/v1/destinations", headers=headers, json=post_body, timeout=6)
+                if create_res.status_code in (200, 201) and create_res.json():
+                    dest_id = create_res.json()[0]["destination_id"]
+
+            if not dest_id:
+                continue
+
+            # 2. Check if link in destination_nodes already exists
+            link_check = requests.get(f"{base_url}/rest/v1/destination_nodes?destination_id=eq.{dest_id}&node_id=eq.{node_id_int}", headers=headers, timeout=6)
+            if link_check.status_code == 200 and not link_check.json():
+                link_body = {"destination_id": dest_id, "node_id": node_id_int}
+                link_post = requests.post(f"{base_url}/rest/v1/destination_nodes", headers=headers, json=link_body, timeout=6)
+                if link_post.status_code in (200, 201):
+                    created_links.append(link_body)
+
+        return True, created_links
+    except Exception as e:
+        return False, f"استثناء أثناء ربط الوجهات: {e}"
+
 
 class ProvisioningHistoryStore:
     """
     Thread-safe permanent storage for provisioned nodes in provisioning_history.json.
     """
     def __init__(self, filepath=HISTORY_FILE):
+
         self.filepath = filepath
         self.lock = threading.Lock()
         self.data = self._load()
