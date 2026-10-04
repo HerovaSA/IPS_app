@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:parliament_ips/controllers/permission_controller.dart';
 import 'package:parliament_ips/core/localization/locale_controller.dart';
 import 'package:parliament_ips/core/theme/app_palette.dart';
@@ -46,8 +47,11 @@ class PermissionPage extends StatelessWidget {
 
   Future<void> _handleStartNavigation() async {
     await permissionController.checkPermissionStatus();
-    if (permissionController.locationPermissionGranted.value == true &&
-        permissionController.bluetoothStatus.value == true) {
+    final bool canProceed = kDebugMode ||
+        (permissionController.locationPermissionGranted.value == true &&
+            permissionController.bluetoothStatus.value == true);
+
+    if (canProceed) {
       final prefs = await SharedPreferences.getInstance();
       final onboardingDone = prefs.getBool('initial') == true;
       if (onboardingDone) {
@@ -92,7 +96,29 @@ class PermissionPage extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Center(
                 child: SingleChildScrollView(
-                  child: _buildForState(context, state, palette),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildForState(context, state, palette),
+                      if (kDebugMode) ...[
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: palette.goldDark,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          icon: const Icon(Icons.map_rounded),
+                          label: const Text(
+                            'فتح الخريطة والشاشات (وضع التجربة)',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          onPressed: () => Get.offAll(const MainNavigationScreen()),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
             ),
